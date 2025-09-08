@@ -67,12 +67,20 @@ Demo rules:
         self._set_system_volume(100)
 
     def _set_system_volume(self, volume_percent: int):
-        """Internal helper to set system volume"""
+        """Internal helper to set system volume for RPi 3.5mm audio output"""
         try:
+            # For Raspberry Pi 3.5mm audio jack (bcm2835 ALSA)
+            cmd_line_pcm = ["sudo", "-u", "pi", "amixer", "sset", "PCM", f"{volume_percent}%"]
+            cmd_line_master = ["sudo", "-u", "pi", "amixer", "sset", "Master", f"{volume_percent}%"]
+            
+            # Try PCM control first (most common for RPi audio)
+            subprocess.run(cmd_line_pcm, capture_output=True, text=True, timeout=5)
+            subprocess.run(cmd_line_master, capture_output=True, text=True, timeout=5)
+            
+            # Legacy commands for backwards compatibility
             cmd_line = ["sudo", "-u", "pi", "amixer", "sset", "Line", f"{volume_percent}%"]
             cmd_line_dac = ["sudo", "-u", "pi", "amixer", "sset", "Line DAC", f"{volume_percent}%"]
             cmd_line_hp = ["sudo", "-u", "pi", "amixer", "sset", "HP", f"{volume_percent}%"]
-            
             
             subprocess.run(cmd_line, capture_output=True, text=True, timeout=5)
             subprocess.run(cmd_line_dac, capture_output=True, text=True, timeout=5)
@@ -212,7 +220,7 @@ Demo rules:
             
             # Use the internal helper function
             self._set_system_volume(volume_percent)
-            result = f"Set Line and Line DAC volume to {volume_percent}%"
+            result = f"Set PCM and Master volume to {volume_percent}%"
             return result
                 
         except subprocess.TimeoutExpired:
@@ -232,10 +240,17 @@ Demo rules:
 async def entrypoint(ctx: agents.JobContext):
     agent = LeLamp()
     
+    # DeepSeek configuration - using standard LLM pipeline (STT + LLM + TTS)
     session = AgentSession(
-        llm=openai.realtime.RealtimeModel(
-            voice="ballad" 
+        llm=openai.LLM.with_deepseek(
+            model="deepseek-chat",  # DeepSeek-V3 model
+            temperature=0.8,        # Control randomness (0.0-2.0)
+            parallel_tool_calls=True,  # Enable parallel tool calling
+            tool_choice="auto"      # Let model decide when to use tools
         )
+        # Note: You can also add STT and TTS providers here if needed
+        # stt=deepgram.STT(),
+        # tts=cartesia.TTS(),
     )
 
     await session.start(
@@ -246,8 +261,11 @@ async def entrypoint(ctx: agents.JobContext):
         ),
     )
 
+    # Note: DeepSeek LLM doesn't support realtime voice generation
+    # The agent will use STT + LLM + TTS pipeline instead of realtime model
     await session.generate_reply(
-        instructions=f"""When you wake up, starts with Tadaaaa. Only speak in English, never in Vietnamese."""
+        instructions=f"""When you wake up, starts with Tadaaaa. Only speak in English, never in Vietnamese. 
+        You are now powered by DeepSeek-V3, a powerful language model."""
     )
 
 if __name__ == "__main__":
