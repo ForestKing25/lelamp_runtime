@@ -16,6 +16,11 @@ dependencies = [
     "pyaudio>=0.2.14",
     "python-dotenv",
     "sounddevice>=0.5.2",
+    # XiaoZhi集成依赖
+    "paho-mqtt>=1.6.0",
+    "opuslib>=3.0.1",
+    "cryptography>=41.0.0",
+    "requests>=2.31.0",
 ]
 
 [tool.uv.sources]
